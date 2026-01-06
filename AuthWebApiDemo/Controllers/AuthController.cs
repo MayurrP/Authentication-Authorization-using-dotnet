@@ -38,8 +38,8 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("Auth-endpoint")]
-    [Authorize]
-    public ActionResult AuthCheck()
+    [Authorize(Roles = "Admin")]
+    public ActionResult AdminAuthCheck()
     {
         return Ok();
     }
