@@ -1,9 +1,8 @@
-﻿namespace AuthWebApiDemo.Model
-{
-    public class UserDto
-    {
-        public string Username { get; set; } = string.Empty;
+﻿namespace AuthWebApiDemo.Model;
 
-        public string Password { get; set; } = string.Empty;
-    }
+public class UserDto
+{
+    public string Username { get; set; } = string.Empty;
+
+    public string Password { get; set; } = string.Empty;
 }
