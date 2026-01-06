@@ -1,0 +1,6 @@
+@AuthWebApiDemo_HostAddress = http://localhost:5258
+
+GET {{AuthWebApiDemo_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
