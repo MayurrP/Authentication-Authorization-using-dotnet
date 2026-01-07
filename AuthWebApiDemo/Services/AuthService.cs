@@ -4,31 +4,25 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using AuthWebApiDemo.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace AuthWebApiDemo.Services;
 
-public class AuthService : IAuthService
+public class AuthService(IConfiguration configuration, MyDbContext context) : IAuthService
 {
-    private readonly IConfiguration configuration;
-    private readonly MyDbContext context;
-
-    public AuthService(IConfiguration configuration, MyDbContext context)
-    {
-        this.configuration = configuration;
-        this.context = context; 
-    }
-
     public async Task<User?> Register(UserDto request)
     {
         if (await context.Users.AnyAsync(u => u.Username == request.Username))
             return null;
 
-        var user = new User();
+        var user = new User
+        {
+            Username = request.Username
+        };
 
-        user.Username = request.Username;
         user.PasswordHash = new PasswordHasher<User>()
             .HashPassword(user, request.Password);
 
@@ -38,7 +32,7 @@ public class AuthService : IAuthService
         return user;
     }
 
-    public async Task<string> Login(UserDto request)
+    public async Task<TokenResponseDto?> Login(UserDto request)
     {
         User? user = await context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
         if (user is null)
@@ -48,9 +42,25 @@ public class AuthService : IAuthService
             == PasswordVerificationResult.Failed)
             return null;
 
-        string token = CreateToken(user);
+        var token = new TokenResponseDto
+        {
+            AccessToken = CreateToken(user),
+            RefreshToken = await GenerateAndSaveRefreshToken(user)
+        };
 
         return token;
+    }
+
+    private async Task<string> GenerateAndSaveRefreshToken(User user)
+    {
+        var randomNumber = new byte[32];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        var refreshToken = Convert.ToBase64String(randomNumber);
+        user.RefreshToken = refreshToken;
+        user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(1);
+        await context.SaveChangesAsync();
+        return refreshToken;
     }
 
     private string CreateToken(User user)
@@ -75,5 +85,20 @@ public class AuthService : IAuthService
         );
 
         return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
+    }
+
+    public async Task<TokenResponseDto?> RefreshTokenAsync(RefreshTokenRequestDto request)
+    {
+        var user = await context.Users.FindAsync(request.UserId);
+        if (user is null || user.RefreshToken != request.RefreshToken || user.RefreshTokenExpiry < DateTime.UtcNow)
+            return null;
+
+        var token = new TokenResponseDto
+        {
+            AccessToken = CreateToken(user),
+            RefreshToken = await GenerateAndSaveRefreshToken(user)
+        };
+
+        return token;
     }
 }

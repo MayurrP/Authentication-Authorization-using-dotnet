@@ -8,15 +8,8 @@ namespace AuthWebApiDemo.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-public class AuthController : ControllerBase
+public class AuthController(IAuthService authService) : ControllerBase
 {
-    private readonly IAuthService authService;
-
-    public AuthController(IAuthService authService)
-    {
-        this.authService = authService;
-    }
-
     [HttpPost("register")]
     public async Task<ActionResult<User?>> Register(UserDto request)
     {
@@ -28,11 +21,21 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<string>> Login(UserDto request)
+    public async Task<ActionResult<TokenResponseDto?>> Login(UserDto request)
     {
-        string token = await authService.Login(request);
+        TokenResponseDto? token = await authService.Login(request);
         if (token is null)
             return BadRequest("Invalid username or password.");
+
+        return Ok(token);
+    }
+
+    [HttpPost("refresh-token")]
+    public async Task<ActionResult<TokenResponseDto?>> RefreshToken(RefreshTokenRequestDto request)
+    {
+        TokenResponseDto? token = await authService.RefreshTokenAsync(request);
+        if (token is null)
+            return BadRequest("Invalid refresh token.");
 
         return Ok(token);
     }
